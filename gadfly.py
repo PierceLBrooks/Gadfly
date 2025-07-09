@@ -4,14 +4,20 @@
 import os
 import sys
 import json
+import hashlib
 import logging
+import requests
 import traceback
 import subprocess
-import urllib.requests as requester
 import esprima_ast_visitor_py.visitor as visit
 from GoogleAds.main import GoogleAds
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
+
+def hashify(string):
+    sha = hashlib.md5()
+    sha.update(string.encode("UTF-8"))
+    return sha.hexdigest()
 
 ads = GoogleAds()
 advertisor_id = sys.argv[1]
@@ -24,7 +30,7 @@ if (os.path.exists(os.path.join(os.getcwd(), advertisor_id+".json"))):
     creative_ids = creative_ids["creative_ids"]
     descriptor.close()
 else:
-    creative_ids = ads.creative_search_by_advertiser_id(advertisor_id, 40)
+    creative_ids = ads.creative_search_by_advertiser_id(advertisor_id, 200)
 urls = []
 for creative_id in creative_ids:
     ad = None
@@ -55,15 +61,25 @@ descriptor = open(os.path.join(os.getcwd(), advertisor_id+".json"), "w")
 descriptor.write(json.dumps(contents))
 descriptor.close()
 contents = []
+if (sys.flags.debug):
+    print(str(len(creative_ids)))
+    print(str(len(creatives)))
+mapping = {}
 for url in urls:
     if (sys.flags.debug):
         print(url)
     try:
-        content = requester.urlopen(url).read()
+        content = requests.get(url).text
+        mapping[hashify(content)] = url
+        if (sys.flags.debug):
+            print(hashify(content)+" -> "+url)
         contents.append(content)
     except:
         logging.error(traceback.format_exc())
+if (len(contents) < len(urls)):
+    print("[GADFLY] Could not get all content URLs: %s / %s"%(str(len(contents)), str(len(urls))))
 esprima_ast_strings = []
+values = []
 for content in contents:
     target = os.path.join(os.getcwd(), sys.argv[0]+".js")
     descriptor = open(target, "w")
@@ -94,7 +110,10 @@ for content in contents:
     if (exit == 0):
         esprima_ast_strings.append(json.loads("\n".join(lines)))
     else:
+        print("[GADFLY] Parse failure @: \""+str(mapping[hashify(content)])+"\"")
         values.append(value)
+if (len(esprima_ast_strings) < len(contents)):
+    print("[GADFLY] Could not parse all content URLs: %s / %s" % (str(len(esprima_ast_strings)), str(len(urls))))
 while (len(esprima_ast_strings) > 0):
     esprima_ast_string = esprima_ast_strings[0]
     if (len(esprima_ast_strings) > 1):
@@ -132,7 +151,7 @@ while (len(esprima_ast_strings) > 0):
                             descriptor.close()
                             command = []
                             command.append("node")
-                            command.append(os.path.join(os.getcwd(), "es.js"))
+                            command.append(os.path.join(os.getcwd(), "gadfly.js"))
                             command.append(target)
                             lines = []
                             exit = 0
@@ -160,4 +179,29 @@ while (len(esprima_ast_strings) > 0):
 descriptor = open(os.path.join(os.getcwd(), sys.argv[0]+".json"), "w")
 descriptor.write(json.dumps(values))
 descriptor.close()
+videos = []
+for i in range(len(values)):
+    video = values[i]
+    if not (video == "video_videoId"):
+        continue
+    if (i+1 >= len(values)):
+        break
+    video = "https://youtube.com/watch?v=%s"%tuple([values[i+1]])
+    if (video in videos):
+        continue
+    videos.append(video)
+for video in videos:
+    if (sys.flags.debug):
+        print(video)
+    command = []
+    command.append(sys.executable)
+    command.append("-m")
+    command.append("yt_dlp")
+    command.append("-i")
+    command.append("-v")
+    command.append(video)
+    try:
+        output = subprocess.check_output(command)
+    except:
+        logging.error(traceback.format_exc())
 

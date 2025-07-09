@@ -1,7 +1,9 @@
 .DS_Store
-node_modules
+/node_modules
 /*.py.*
 /*.json
+/*.mp4
+/*.webm
 
 # Byte-compiled  optimized DLL files
 __pycache__
