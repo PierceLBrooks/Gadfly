@@ -1,0 +1,3 @@
+[submodule "esprima_ast_visitor_py"]
+	path = esprima_ast_visitor_py
+	url = https://github.com/austinbyers/esprima-ast-visitor.git

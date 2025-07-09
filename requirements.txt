@@ -1,0 +1,3 @@
+Google-Ads-Transparency-Scraper>=1.6.0
+beautifulsoup4>=4.13.4
+
