@@ -7,6 +7,7 @@ import json
 import hashlib
 import logging
 import requests
+import mimetypes
 import traceback
 import subprocess
 import esprima_ast_visitor_py.visitor as visit
@@ -19,6 +20,7 @@ def hashify(string):
     sha.update(string.encode("UTF-8"))
     return sha.hexdigest()
 
+mimetypes.init()
 ads = GoogleAds()
 advertisor_id = sys.argv[1]
 creative_ids = None
@@ -32,6 +34,7 @@ if (os.path.exists(os.path.join(os.getcwd(), advertisor_id+".json"))):
 else:
     creative_ids = ads.creative_search_by_advertiser_id(advertisor_id, 200)
 urls = []
+mimes = []
 for creative_id in creative_ids:
     ad = None
     if (creative_id in creatives):
@@ -52,8 +55,22 @@ for creative_id in creative_ids:
             parse = urlparse(ad[key])
             if (parse.path.endswith(".js")):
                 urls.append(ad[key])
+            elif (parse.netloc.endswith("googlevideo.com")):
+                mimes.append([ad[key], creative_id])
         except:
             logging.error(traceback.format_exc())
+for mime in mimes:
+    creative_id = mime[1]
+    try:
+        mime = requests.get(mime[0])
+        if ("200" in str(mime.status_code)):
+            headers = mime.headers
+            mime = mime.content
+            descriptor = open(os.path.join(os.getcwd(), creative_id+mimetypes.guess_extension(headers["Content-Type"])), "wb")
+            descriptor.write(mime)
+            descriptor.close()
+    except:
+        logging.error(traceback.format_exc())
 contents = {}
 contents["creatives"] = creatives
 contents["creative_ids"] = creative_ids
