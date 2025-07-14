@@ -2,8 +2,22 @@
 /node_modules
 /*.py.*
 /*.json
+/*.xml
+/*.log
 /*.mp4
 /*.webm
+/*.mpd
+/*.mpp
+/*.m3u8
+/*.m3u
+/*.gif
+/*.png
+/*.jpeg
+/*.jpg
+/*.ico
+/*.icn
+/*.html
+/*.htm
 
 # Byte-compiled  optimized DLL files
 __pycache__
