@@ -519,28 +519,29 @@ for advertisor_id in advertisor_ids:
             print(str(output.decode("UTF-8")))
         except:
             logging.error(traceback.format_exc())
-for root, folders, files in os.walk(os.getcwd()):
-    for name in files:
-        if ((name.endswith(".m3u")) or (name.endswith(".m3u8"))):
-            if not (os.path.exists(os.path.join(root, name+".mp4"))):
-                command = []
-                command.append("ffmpeg")
-                command.append("-allowed_extensions")
-                command.append("ALL")
-                command.append("-protocol_whitelist")
-                command.append("file,http,https,crypto,tcp,tls")
-                command.append("-loglevel")
-                command.append("debug")
-                command.append("-i")
-                command.append(os.path.join(root, name))
-                command.append(os.path.join(root, name+".mp4"))
-                try:
-                    output = subprocess.check_output(command)
-                    print(str(output.decode("UTF-8")))
-                except:
-                    logging.error(traceback.format_exc())
-                time.sleep(1)
-    break
+if (os.path.exists(str(shutil.which("ffmpeg")))):
+    for root, folders, files in os.walk(os.getcwd()):
+        for name in files:
+            if ((name.endswith(".m3u")) or (name.endswith(".m3u8"))):
+                if not (os.path.exists(os.path.join(root, name+".mp4"))):
+                    command = []
+                    command.append("ffmpeg")
+                    command.append("-allowed_extensions")
+                    command.append("ALL")
+                    command.append("-protocol_whitelist")
+                    command.append("file,http,https,crypto,tcp,tls")
+                    command.append("-loglevel")
+                    command.append("debug")
+                    command.append("-i")
+                    command.append(os.path.join(root, name))
+                    command.append(os.path.join(root, name+".mp4"))
+                    try:
+                        output = subprocess.check_output(command)
+                        print(str(output.decode("UTF-8")))
+                    except:
+                        logging.error(traceback.format_exc())
+                    time.sleep(1)
+        break
 descriptor = open(os.path.join(os.getcwd(), sys.argv[0]+".json"), "w")
 descriptor.write(json.dumps(records+record))
 descriptor.close()
