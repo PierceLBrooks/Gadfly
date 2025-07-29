@@ -1,6 +1,7 @@
 
 # Author: Pierce Brooks
 
+import re
 import os
 import sys
 import json
@@ -17,6 +18,7 @@ import esprima_ast_visitor_py.visitor as visit
 from GoogleAds.main import GoogleAds
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
+from pywebcopy.configs import get_config
 
 def is_valid_url(subject):
     try:
@@ -55,6 +57,7 @@ try:
     mimetypes.add_type("application/dash-patch+xml", ".mpp", strict=True)
 except:
     pass
+webs = {}
 records = []
 record = []
 limit = 100
@@ -141,6 +144,9 @@ for advertisor_id in advertisor_ids:
                     mimes.append([ad[key], creative_id])
             except:
                 logging.error(traceback.format_exc())
+        web = "https://adstransparency.google.com/advertiser/"+advertisor_id+"/creative/"+creative_id
+        if not (web in webs):
+            webs[web] = []
     if (sys.flags.debug):
         print("Errors: "+str(errors)+" / "+str(len(creative_ids)))
     contents = {}
@@ -546,4 +552,77 @@ if (os.path.exists(str(shutil.which("ffmpeg")))):
 descriptor = open(os.path.join(os.getcwd(), sys.argv[0]+".json"), "w")
 descriptor.write(json.dumps(records+record))
 descriptor.close()
+headers = {}
+headers["authority"] = "adstransparency.google.com"
+headers["accept"] = "*/*"
+headers["accept-language"] = "en-US,en;q=0.9"
+headers["sec-ch-ua"] = "\"Not.A/Brand\";v=\"8\", \"Chromium\";v=\"114\", \"Google Chrome\";v=\"114\""
+headers["sec-ch-ua-arch"] = "\"x86\""
+headers["sec-ch-ua-bitness"] = "\"64\""
+headers["sec-ch-ua-full-version-list"] = "\"Not.A/Brand\";v=\"8.0.0.0\", \"Chromium\";v=\"114.0.5735.134\", \"Google Chrome\";v=\"114.0.5735.134\""
+headers["sec-ch-ua-mobile"] = "?0"
+headers["sec-ch-ua-model"] = "\"\""
+headers["sec-ch-ua-platform"] = "\"Windows\""
+headers["sec-ch-ua-platform-version"] = "\"15.0.0\""
+headers["sec-ch-ua-wow64"] = "?0"
+headers["sec-ch-ua-dest"] = "document"
+headers["sec-ch-ua-mode"] = "navigate"
+headers["sec-ch-ua-site"] = "none"
+headers["sec-ch-ua-user"] = "?1"
+headers["upgrade-insecure-requests"] = "1"
+headers["user-agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+#headers = dict(sorted(headers.items()))
+pattern = re.compile(r"https?://\w+\.ytimg\.com/((\w|-)+)\b")
+for web in webs:
+    try:
+        config = get_config(project_url=web, project_folder=os.path.join(os.getcwd(), str(hashify(web))), project_name=str(hashify(web)), bypass_robots=True, debug=True, delay=None, threaded=False)
+        config.__setitem__("http_headers", headers)
+        page = config.create_page()
+        page.get(web)
+        page.save_complete(pop=False)
+    except:
+        logging.error(traceback.format_exc())
+    if (os.path.exists(os.path.join(os.getcwd(), str(hashify(web))))):
+        try:
+            for root, folders, files in os.walk(os.path.join(os.getcwd(), str(hashify(web)))):
+                for name in files:
+                    path = os.path.join(root, name)
+                    if (sys.flags.debug):
+                        print(path)
+                    try:
+                        descriptor = open(path, "r")
+                        lines = descriptor.readlines()
+                        descriptor.close()
+                        for line in lines:
+                            while (True):
+                                found = pattern.search(line)
+                                if (found == None):
+                                    continue
+                                group = 1
+                                match = found.group(group)
+                                line = line[found.end(group):]
+                                if not (match in webs[web]):
+                                    webs[web].append(match)
+                    except:
+                        pass
+            shutil.rmtree(os.path.join(os.getcwd(), str(hashify(web))))
+        except:
+            logging.error(traceback.format_exc())
+    for i in range(len(webs[web])):
+        video = webs[web][i]
+        video = "https://youtube.com/watch?v=%s"%tuple([webs[web][i]])
+        if (sys.flags.debug):
+            print(video)
+        command = []
+        command.append(sys.executable)
+        command.append("-m")
+        command.append("yt_dlp")
+        command.append("-i")
+        command.append("-v")
+        command.append(video)
+        try:
+            output = subprocess.check_output(command)
+            print(str(output.decode("UTF-8")))
+        except:
+            logging.error(traceback.format_exc())
 
