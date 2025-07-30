@@ -7,6 +7,7 @@ import sys
 import json
 import time
 import shutil
+import pathlib
 import hashlib
 import logging
 import requests
@@ -18,7 +19,9 @@ import esprima_ast_visitor_py.visitor as visit
 from GoogleAds.main import GoogleAds
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
-from pywebcopy.configs import get_config
+from selenium import webdriver
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.by import By
 
 def is_valid_url(subject):
     try:
@@ -85,7 +88,7 @@ if (len(advertisor_ids) == 0):
     sys.exit(-1)
 advertisor_ids = list(sorted(advertisor_ids))
 for advertisor_id in advertisor_ids:
-    time.sleep(1)
+    time.sleep(3)
     if not (proxy == None):
         ads.refresh_session(proxy=proxy)
     if (sys.flags.debug):
@@ -111,7 +114,7 @@ for advertisor_id in advertisor_ids:
     mimes = []
     errors = 0
     for creative_id in creative_ids:
-        time.sleep(1)
+        time.sleep(3)
         if (sys.flags.debug):
             print(creative_id)
         ad = None
@@ -144,9 +147,10 @@ for advertisor_id in advertisor_ids:
                     mimes.append([ad[key], creative_id])
             except:
                 logging.error(traceback.format_exc())
-        web = "https://adstransparency.google.com/advertiser/"+advertisor_id+"/creative/"+creative_id
-        if not (web in webs):
-            webs[web] = []
+        if (("Ad Format" in ad) and (str(ad["Ad Format"]).strip() == "Video")):
+            web = "https://adstransparency.google.com/advertiser/"+advertisor_id+"/creative/"+creative_id
+            if not (web in webs):
+                webs[web] = []
     if (sys.flags.debug):
         print("Errors: "+str(errors)+" / "+str(len(creative_ids)))
     contents = {}
@@ -547,82 +551,46 @@ if (os.path.exists(str(shutil.which("ffmpeg")))):
                         print(str(output.decode("UTF-8")))
                     except:
                         logging.error(traceback.format_exc())
-                    time.sleep(1)
+                    time.sleep(3)
         break
 descriptor = open(os.path.join(os.getcwd(), sys.argv[0]+".json"), "w")
 descriptor.write(json.dumps(records+record))
 descriptor.close()
-headers = {}
-headers["authority"] = "adstransparency.google.com"
-headers["accept"] = "*/*"
-headers["accept-language"] = "en-US,en;q=0.9"
-headers["sec-ch-ua"] = "\"Not.A/Brand\";v=\"8\", \"Chromium\";v=\"114\", \"Google Chrome\";v=\"114\""
-headers["sec-ch-ua-arch"] = "\"x86\""
-headers["sec-ch-ua-bitness"] = "\"64\""
-headers["sec-ch-ua-full-version-list"] = "\"Not.A/Brand\";v=\"8.0.0.0\", \"Chromium\";v=\"114.0.5735.134\", \"Google Chrome\";v=\"114.0.5735.134\""
-headers["sec-ch-ua-mobile"] = "?0"
-headers["sec-ch-ua-model"] = "\"\""
-headers["sec-ch-ua-platform"] = "\"Windows\""
-headers["sec-ch-ua-platform-version"] = "\"15.0.0\""
-headers["sec-ch-ua-wow64"] = "?0"
-headers["sec-ch-ua-dest"] = "document"
-headers["sec-ch-ua-mode"] = "navigate"
-headers["sec-ch-ua-site"] = "none"
-headers["sec-ch-ua-user"] = "?1"
-headers["upgrade-insecure-requests"] = "1"
-headers["user-agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
-#headers = dict(sorted(headers.items()))
 pattern = re.compile(r"https?://\w+\.ytimg\.com/vi/((\w|-)+)\b")
-try:
-    os.makedirs(os.path.join(os.getcwd(), "gadfly"), exist_ok=True)
-except:
-    pass
+driver = webdriver.Chrome()
 for web in webs:
     if (sys.flags.debug):
         print(web)
     try:
-        if (os.path.exists(os.path.join(os.getcwd(), "gadfly"))):
-            shutil.rmtree(os.path.join(os.getcwd(), "gadfly"))
-        config = get_config(project_url=web, project_folder=os.path.join(os.getcwd(), "gadfly"), project_name=str(hashify(web)), bypass_robots=True, debug=True, delay=None, threaded=False)
-        config.__setitem__("http_headers", headers)
-        page = config.create_page()
-        page.get(web)
-        page.save_complete(pop=False)
+        if (os.path.exists(os.path.join(os.getcwd(), str(hashify(web))+".html"))):
+            #pathlib.Path.unlink(os.path.join(os.getcwd(), str(hashify(web))+".html"))
+            continue
+        driver.get(web)
+        time.sleep(3)
+        html = None
+        try:
+            html = driver.execute_script("return document.getElementsByTagName('html')[0].innerHTML")
+        except:
+            html = None
+        if (html == None):
+            html = driver.page_source
+        descriptor = open(os.path.join(os.getcwd(), str(hashify(web))+".html"), "w")
+        descriptor.write(str(html))
+        descriptor.close()
+        elements = driver.find_elements(By.TAG_NAME, "img")
+        for element in elements:
+            try:
+                image = element.get_attribute("src")
+                found = pattern.search(str(image))
+                if not (found == None):
+                    group = 1
+                    match = found.group(group)
+                    if not (match in webs[web]):
+                        webs[web].append(match)
+            except:
+                pass
     except:
         logging.error(traceback.format_exc())
-    if (os.path.exists(os.path.join(os.getcwd(), "gadfly", str(hashify(web))))):
-        try:
-            for root, folders, files in os.walk(os.path.join(os.getcwd(), "gadfly", str(hashify(web)))):
-                for name in files:
-                    """
-                    if not ("." in name):
-                        continue
-                    if not (name[name.index("."):].startswith(".htm")):
-                        continue
-                    """
-                    path = os.path.join(root, name)
-                    if (sys.flags.debug):
-                        print(path)
-                    try:
-                        descriptor = open(path, "r")
-                        lines = descriptor.readlines()
-                        descriptor.close()
-                        for line in lines:
-                            while (True):
-                                found = pattern.search(line)
-                                if (found == None):
-                                    break
-                                group = 1
-                                match = found.group(group)
-                                line = line[found.end(group):]
-                                if not (match in webs[web]):
-                                    webs[web].append(match)
-                    except:
-                        pass
-            if not (sys.flags.debug):
-                shutil.rmtree(os.path.join(os.getcwd(), "gadfly", str(hashify(web))))
-        except:
-            logging.error(traceback.format_exc())
     for i in range(len(webs[web])):
         video = webs[web][i]
         video = "https://youtube.com/watch?v=%s"%tuple([webs[web][i]])
