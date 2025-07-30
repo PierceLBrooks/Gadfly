@@ -88,7 +88,7 @@ if (len(advertisor_ids) == 0):
     sys.exit(-1)
 advertisor_ids = list(sorted(advertisor_ids))
 for advertisor_id in advertisor_ids:
-    time.sleep(3)
+    time.sleep(5)
     if not (proxy == None):
         ads.refresh_session(proxy=proxy)
     if (sys.flags.debug):
@@ -114,7 +114,7 @@ for advertisor_id in advertisor_ids:
     mimes = []
     errors = 0
     for creative_id in creative_ids:
-        time.sleep(3)
+        time.sleep(5)
         if (sys.flags.debug):
             print(creative_id)
         ad = None
@@ -551,7 +551,7 @@ if (os.path.exists(str(shutil.which("ffmpeg")))):
                         print(str(output.decode("UTF-8")))
                     except:
                         logging.error(traceback.format_exc())
-                    time.sleep(3)
+                    time.sleep(5)
         break
 descriptor = open(os.path.join(os.getcwd(), sys.argv[0]+".json"), "w")
 descriptor.write(json.dumps(records+record))
@@ -566,7 +566,7 @@ for web in webs:
             #pathlib.Path.unlink(os.path.join(os.getcwd(), str(hashify(web))+".html"))
             continue
         driver.get(web)
-        time.sleep(3)
+        time.sleep(5)
         html = None
         try:
             html = driver.execute_script("return document.getElementsByTagName('html')[0].innerHTML")
@@ -574,21 +574,20 @@ for web in webs:
             html = None
         if (html == None):
             html = driver.page_source
+        html = str(html)
         descriptor = open(os.path.join(os.getcwd(), str(hashify(web))+".html"), "w")
-        descriptor.write(str(html))
+        descriptor.write(html)
         descriptor.close()
-        elements = driver.find_elements(By.TAG_NAME, "img")
-        for element in elements:
-            try:
-                image = element.get_attribute("src")
-                found = pattern.search(str(image))
-                if not (found == None):
-                    group = 1
-                    match = found.group(group)
-                    if not (match in webs[web]):
-                        webs[web].append(match)
-            except:
-                pass
+        try:
+            soup = BeautifulSoup(html)
+            images = soup.find_all("img")
+            for image in images:
+                image = str(image["src"])
+                if ((image == None) (image == "None") or (len(image) == 0) or (image in webs[web])):
+                    continue
+                webs[web].append(image)
+        except:
+            pass
     except:
         logging.error(traceback.format_exc())
     for i in range(len(webs[web])):
