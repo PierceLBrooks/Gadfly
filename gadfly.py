@@ -290,7 +290,14 @@ for advertisor_id in advertisor_ids:
                                         soup = BeautifulSoup(value)
                                         scripts = soup.find_all("script")
                                         for script in scripts:
-                                            nodes.append(str(script.string))
+                                            if (script.has_attr("src")):
+                                                try:
+                                                    response = requests.get(script["src"])
+                                                    nodes.append(str(response.text))
+                                                except:
+                                                    logging.error(traceback.format_exc())
+                                            else:
+                                                nodes.append(str(script.string))
                                     except:
                                         nodes = []
                                         nodes.append(value)
@@ -417,7 +424,14 @@ for advertisor_id in advertisor_ids:
                             soup = BeautifulSoup(mime.decode("UTF-8"))
                             scripts = soup.find_all("script")
                             for script in scripts:
-                                nodes.append(str(script.string))
+                                if (script.has_attr("src")):
+                                    try:
+                                        response = requests.get(script["src"])
+                                        nodes.append(str(response.text))
+                                    except:
+                                        logging.error(traceback.format_exc())
+                                else:
+                                    nodes.append(str(script.string))
                         except:
                             logging.error(traceback.format_exc())
                         for value in nodes:
@@ -569,25 +583,33 @@ for web in webs:
         time.sleep(5)
         html = None
         try:
-            html = driver.execute_script("return document.getElementsByTagName('html')[0].innerHTML")
+            html = driver.execute_script("return document.body.innerHTML")
         except:
             html = None
+            logging.error(traceback.format_exc())
         if (html == None):
             html = driver.page_source
         html = str(html)
         descriptor = open(os.path.join(os.getcwd(), str(hashify(web))+".html"), "w")
         descriptor.write(html)
         descriptor.close()
+        sys.exit()
         try:
-            soup = BeautifulSoup(html)
-            images = soup.find_all("img")
-            for image in images:
-                image = str(image["src"])
-                if ((image == None) (image == "None") or (len(image) == 0) or (image in webs[web])):
-                    continue
-                webs[web].append(image)
+            descriptor = open(os.path.join(os.getcwd(), str(hashify(web))+".html"), "r")
+            lines = descriptor.readlines()
+            descriptor.close()
+            for line in lines:
+                while (True):
+                    found = pattern.search(line)
+                    if (found == None):
+                        break
+                    group = 1
+                    match = found.group(group)
+                    line = line[found.end(group):]
+                    if not (match in webs[web]):
+                        webs[web].append(match)
         except:
-            pass
+            logging.error(traceback.format_exc())
     except:
         logging.error(traceback.format_exc())
     for i in range(len(webs[web])):
