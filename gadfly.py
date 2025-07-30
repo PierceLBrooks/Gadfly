@@ -572,20 +572,34 @@ headers["sec-ch-ua-user"] = "?1"
 headers["upgrade-insecure-requests"] = "1"
 headers["user-agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
 #headers = dict(sorted(headers.items()))
-pattern = re.compile(r"https?://\w+\.ytimg\.com/((\w|-)+)\b")
+pattern = re.compile(r"https?://\w+\.ytimg\.com/vi/((\w|-)+)\b")
+try:
+    os.makedirs(os.path.join(os.getcwd(), "gadfly"), exist_ok=True)
+except:
+    pass
 for web in webs:
+    if (sys.flags.debug):
+        print(web)
     try:
-        config = get_config(project_url=web, project_folder=os.path.join(os.getcwd(), str(hashify(web))), project_name=str(hashify(web)), bypass_robots=True, debug=True, delay=None, threaded=False)
+        if (os.path.exists(os.path.join(os.getcwd(), "gadfly"))):
+            shutil.rmtree(os.path.join(os.getcwd(), "gadfly"))
+        config = get_config(project_url=web, project_folder=os.path.join(os.getcwd(), "gadfly"), project_name=str(hashify(web)), bypass_robots=True, debug=True, delay=None, threaded=False)
         config.__setitem__("http_headers", headers)
         page = config.create_page()
         page.get(web)
         page.save_complete(pop=False)
     except:
         logging.error(traceback.format_exc())
-    if (os.path.exists(os.path.join(os.getcwd(), str(hashify(web))))):
+    if (os.path.exists(os.path.join(os.getcwd(), "gadfly", str(hashify(web))))):
         try:
-            for root, folders, files in os.walk(os.path.join(os.getcwd(), str(hashify(web)))):
+            for root, folders, files in os.walk(os.path.join(os.getcwd(), "gadfly", str(hashify(web)))):
                 for name in files:
+                    """
+                    if not ("." in name):
+                        continue
+                    if not (name[name.index("."):].startswith(".htm")):
+                        continue
+                    """
                     path = os.path.join(root, name)
                     if (sys.flags.debug):
                         print(path)
@@ -597,7 +611,7 @@ for web in webs:
                             while (True):
                                 found = pattern.search(line)
                                 if (found == None):
-                                    continue
+                                    break
                                 group = 1
                                 match = found.group(group)
                                 line = line[found.end(group):]
@@ -605,7 +619,8 @@ for web in webs:
                                     webs[web].append(match)
                     except:
                         pass
-            shutil.rmtree(os.path.join(os.getcwd(), str(hashify(web))))
+            if not (sys.flags.debug):
+                shutil.rmtree(os.path.join(os.getcwd(), "gadfly", str(hashify(web))))
         except:
             logging.error(traceback.format_exc())
     for i in range(len(webs[web])):

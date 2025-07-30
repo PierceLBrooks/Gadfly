@@ -1,6 +1,6 @@
 Google-Ads-Transparency-Scraper>=1.6.0
 beautifulsoup4>=4.13.4
 yt-dlp>=2025.6.25
-pywebcopy @ git+https://github.com/PierceLBrooks/pywebcopy@e6b805bf53da2dc0446bdc3b91428be9788a6997
+pywebcopy @ git+https://github.com/PierceLBrooks/pywebcopy@7e9cf809b3a17d9e49fdc1f3b1091e102023a90d
 lxml_html_clean>=0.3.1
 
